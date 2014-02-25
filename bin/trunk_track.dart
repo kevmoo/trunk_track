@@ -3,7 +3,7 @@ library trunk_track;
 import 'dart:collection';
 import 'dart:convert';
 
-import 'package:bot_io/bot_git.dart';
+import 'package:git/git.dart';
 import 'package:path/path.dart' as p;
 
 void main() {
@@ -12,33 +12,49 @@ void main() {
   GitDir.fromExisting(current).then((gitDir) {
 
     return gitDir.getCommits(_TRUNK_BRARCH);
-  }).then(_inspectCommits);
-}
-
-void _inspectCommits(LinkedHashMap<String, Commit> commits) {
-  commits.keys.forEach((key) {
-    _parseTrunkCommit(commits[key]);
+  }).then(_inspectCommits).then((commitData) {
+    for(var data in commitData) {
+      print([data.svnCommitNumber, data.merges.length, data.commitSha].join('\t'));
+    }
   });
 }
 
-void _parseTrunkCommit(Commit commit) {
+List<CommitData> _inspectCommits(LinkedHashMap<String, Commit> commits) {
+  return commits.keys
+      .map((commitSha) {
+    return _parseTrunkCommit(commitSha, commits[commitSha]);
+  }).where((data) => data != null).toList();
+}
 
-
+CommitData _parseTrunkCommit(String commitSha, Commit commit) {
   var lines = const LineSplitter().convert(commit.message);
 
   var lineMatch = _svnIdRegExp.firstMatch(lines.last);
 
   var svnCommitNumber = int.parse(lineMatch[1]);
 
-  if(svnCommitNumber <= _V1_COMMIT) return;
+  if(svnCommitNumber <= _V1_COMMIT) return null;
+
+  var versionLine = lines.singleWhere((l) => l.startsWith('Version '));
+  print(versionLine);
 
   var mergeLines = lines
       .where((line) => line.startsWith('svn merge -'))
       .toList();
 
-  print('*** $svnCommitNumber');
+  var merges = new UnmodifiableListView(
+      mergeLines.map((line) => new MergeSet(line)).toList());
 
-  var merges = mergeLines.map((line) => new MergeSet(line)).toList();
+  return new CommitData(commitSha, svnCommitNumber, commit, merges);
+}
+
+class CommitData {
+  final List<MergeSet> merges;
+  final String commitSha;
+  final Commit commit;
+  final int svnCommitNumber;
+
+  CommitData(this.commitSha, this.svnCommitNumber, this.commit, this.merges);
 }
 
 abstract class MergeSet {
@@ -63,6 +79,12 @@ abstract class MergeSet {
       return new RangeMerge(rangeStart, rangeEnd);
     }
 
+    var revertCommitMergeMatch = _revertCommitMergeRegExp.firstMatch(line);
+    if(revertCommitMergeMatch != null) {
+      int mergeCommitNumber = int.parse(revertCommitMergeMatch[1]);
+      return new RevertCommitMerge(mergeCommitNumber);
+    }
+
     throw new StateError('Not supported: $line');
   }
 }
@@ -71,6 +93,18 @@ class SingleCommitMerge implements MergeSet {
   final int commit;
 
   SingleCommitMerge(this.commit) {
+    assert(commit != null && commit >= 0);
+  }
+
+  int get firstCommit => commit;
+  int get lastCommit => commit;
+  bool containsCommit(int commitNumber) => commitNumber == commit;
+}
+
+class RevertCommitMerge implements MergeSet {
+  final int commit;
+
+  RevertCommitMerge(this.commit) {
     assert(commit != null && commit >= 0);
   }
 
@@ -99,6 +133,7 @@ final _svnIdRegExp =
 const _BLEEDING_EDGE = 'https://dart.googlecode.com/svn/branches/bleeding_edge trunk';
 
 final _commitMergeRegExp = new RegExp(r'svn merge -c (\d+) ' + _BLEEDING_EDGE);
+final _revertCommitMergeRegExp = new RegExp(r'svn merge -c -(\d+) ' + _BLEEDING_EDGE);
 final _rangeMergeRegExp = new RegExp(r'svn merge -r ?(\d+):(\d+) ' + _BLEEDING_EDGE);
 
 const _TRUNK_BRARCH = 'remotes/trunk/master';
