@@ -12,7 +12,7 @@ import 'package:trunk_track/version.dart';
  * left null, the commit number for the first dev release of 1.1 (31123) is
  * used.
  */
-List<CommitData> inspectCommits(LinkedHashMap<String, Commit> commits,
+List<TrunkCommitData> inspectCommits(LinkedHashMap<String, Commit> commits,
     {int firstCommit}) {
   if(firstCommit == null) firstCommit = _V1_1_COMMIT;
 
@@ -22,14 +22,14 @@ List<CommitData> inspectCommits(LinkedHashMap<String, Commit> commits,
   }).where((data) => data != null).toList();
 }
 
-CommitData _parseTrunkCommit(String commitSha, Commit commit, int firstCommit) {
+TrunkCommitData _parseTrunkCommit(String commitSha, Commit commit, int firstCommit) {
   var lines = const LineSplitter().convert(commit.message);
 
   var lineMatch = _svnIdRegExp.firstMatch(lines.last);
 
   var svnCommitNumber = int.parse(lineMatch[1]);
 
-  if(svnCommitNumber < firstCommit) return null;
+  if (svnCommitNumber < firstCommit) return null;
 
   var versionLine = lines.singleWhere((l) => l.startsWith(_VERSION));
   var versionStr = versionLine.substring(_VERSION.length);
@@ -42,24 +42,26 @@ CommitData _parseTrunkCommit(String commitSha, Commit commit, int firstCommit) {
   var merges = new UnmodifiableListView(
       mergeLines.map((line) => new MergeSet(line)).toList());
 
-  return new CommitData(commitSha, svnCommitNumber, commit, merges, version);
+  return new TrunkCommitData(commitSha, svnCommitNumber, commit, merges, version);
 }
 
-class CommitData {
+class TrunkCommitData {
   final List<MergeSet> merges;
   final String commitSha;
   final Commit commit;
   final int svnCommitNumber;
   final Version version;
 
-  CommitData(this.commitSha, this.svnCommitNumber, this.commit, this.merges,
+  TrunkCommitData(this.commitSha, this.svnCommitNumber, this.commit, this.merges,
       this.version);
+
+  String toString() => '$version @ $svnCommitNumber';
 }
 
 const _V1_1_COMMIT = 31123;
 
 const _VERSION = 'Version ';
 
-final _svnIdRegExp =
-  new RegExp(r'git-svn-id: https://dart.googlecode.com/svn/trunk@(\d+) '
-      '260f80e4-7a28-3924-810f-c04153c831b5');
+final _svnIdRegExp = new RegExp(
+    r'git-svn-id: https://dart.googlecode.com/svn/trunk@(\d+) '
+    '260f80e4-7a28-3924-810f-c04153c831b5');

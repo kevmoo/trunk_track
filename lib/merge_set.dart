@@ -1,21 +1,24 @@
 library trunk_track.merge_set;
 
+import 'dart:collection';
+
 abstract class MergeSet {
   int get firstCommit;
   int get lastCommit;
+  bool get isRevert;
   bool containsCommit(int commitNumber);
 
   factory MergeSet(String line) {
     assert(line.startsWith('svn merge -'));
 
     var commitMergeMatch = _commitMergeRegExp.firstMatch(line);
-    if(commitMergeMatch != null) {
+    if (commitMergeMatch != null) {
       int mergeCommitNumber = int.parse(commitMergeMatch[1]);
       return new SingleCommitMerge(mergeCommitNumber);
     }
 
     var rangeMergeMatch = _rangeMergeRegExp.firstMatch(line);
-    if(rangeMergeMatch != null) {
+    if (rangeMergeMatch != null) {
       int rangeStart = int.parse(rangeMergeMatch[1]);
       int rangeEnd = int.parse(rangeMergeMatch[2]);
 
@@ -23,17 +26,40 @@ abstract class MergeSet {
     }
 
     var revertCommitMergeMatch = _revertCommitMergeRegExp.firstMatch(line);
-    if(revertCommitMergeMatch != null) {
+    if (revertCommitMergeMatch != null) {
       int mergeCommitNumber = int.parse(revertCommitMergeMatch[1]);
       return new RevertCommitMerge(mergeCommitNumber);
     }
 
     throw new StateError('Not supported: $line');
   }
+
+  static Set<int> getCommitIds(Iterable<MergeSet> sets) {
+    var commits = new SplayTreeSet<int>();
+    var reverts = new Set<int>();
+
+    for (var set in sets) {
+      for (var i = set.firstCommit; i <= set.lastCommit; i++) {
+        if (set.isRevert) {
+          reverts.add(i);
+        } else {
+          commits.add(i);
+        }
+      }
+    }
+
+    print('reverts: $reverts');
+    print(commits.length);
+    commits.removeAll(reverts);
+    print(commits.length);
+
+    return commits;
+  }
 }
 
 class SingleCommitMerge implements MergeSet {
   final int commit;
+  bool get isRevert => false;
 
   SingleCommitMerge(this.commit) {
     assert(commit != null && commit >= 0);
@@ -46,6 +72,7 @@ class SingleCommitMerge implements MergeSet {
 
 class RevertCommitMerge implements MergeSet {
   final int commit;
+  bool get isRevert => true;
 
   RevertCommitMerge(this.commit) {
     assert(commit != null && commit >= 0);
@@ -59,6 +86,7 @@ class RevertCommitMerge implements MergeSet {
 class RangeMerge implements MergeSet {
   final int firstCommit;
   final int lastCommit;
+  bool get isRevert => false;
 
   bool containsCommit(int commitNumber) =>
       commitNumber >= firstCommit && commitNumber <= lastCommit;
@@ -69,7 +97,8 @@ class RangeMerge implements MergeSet {
   }
 }
 
-const _BLEEDING_EDGE = 'https://dart.googlecode.com/svn/branches/bleeding_edge trunk';
+const _BLEEDING_EDGE =
+    'https://dart.googlecode.com/svn/branches/bleeding_edge trunk';
 
 final _commitMergeRegExp = new RegExp(r'svn merge -c (\d+) ' + _BLEEDING_EDGE);
 final _revertCommitMergeRegExp = new RegExp(r'svn merge -c -(\d+) ' + _BLEEDING_EDGE);
