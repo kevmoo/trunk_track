@@ -48,10 +48,11 @@ abstract class MergeSet {
       }
     }
 
-    print('reverts: $reverts');
-    print(commits.length);
-    commits.removeAll(reverts);
-    print(commits.length);
+    for(var revert in reverts) {
+      if(!commits.remove(revert)) {
+        throw 'Could not find reverted commit $revert';
+      }
+    }
 
     return commits;
   }

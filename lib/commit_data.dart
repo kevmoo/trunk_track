@@ -25,7 +25,7 @@ List<TrunkCommitData> inspectCommits(LinkedHashMap<String, Commit> commits,
 TrunkCommitData _parseTrunkCommit(String commitSha, Commit commit, int firstCommit) {
   var lines = const LineSplitter().convert(commit.message);
 
-  var lineMatch = _svnIdRegExp.firstMatch(lines.last);
+  var lineMatch = _trunkSvnIdRegExp.firstMatch(lines.last);
 
   var svnCommitNumber = int.parse(lineMatch[1]);
 
@@ -45,15 +45,42 @@ TrunkCommitData _parseTrunkCommit(String commitSha, Commit commit, int firstComm
   return new TrunkCommitData(commitSha, svnCommitNumber, commit, merges, version);
 }
 
-class TrunkCommitData {
-  final List<MergeSet> merges;
+class SvnCommitData {
   final String commitSha;
   final Commit commit;
   final int svnCommitNumber;
+
+  SvnCommitData(this.commitSha, this.commit, this.svnCommitNumber);
+
+  factory SvnCommitData.parse(String commitSha, Commit commit) {
+    var lines = const LineSplitter().convert(commit.message);
+
+    var lineMatch = _bleedingEdgeSvnIdRegExp.firstMatch(lines.last);
+
+    var svnCommitNumber = int.parse(lineMatch[1]);
+
+    return new SvnCommitData(commitSha, commit, svnCommitNumber);
+  }
+
+  static LinkedHashMap<int, SvnCommitData> getCommitData(
+      Map<String, Commit> commits) {
+    var map = new LinkedHashMap<int, SvnCommitData>();
+
+    commits.forEach((sha, commit) {
+      var data = new SvnCommitData.parse(sha, commit);
+      map[data.svnCommitNumber] = data;
+    });
+
+    return map;
+  }
+}
+
+class TrunkCommitData extends SvnCommitData{
+  final List<MergeSet> merges;
   final Version version;
 
-  TrunkCommitData(this.commitSha, this.svnCommitNumber, this.commit, this.merges,
-      this.version);
+  TrunkCommitData(String commitSha, int svnCommitNumber, Commit commit,
+      this.merges, this.version) : super(commitSha, commit, svnCommitNumber);
 
   String toString() => '$version @ $svnCommitNumber';
 }
@@ -62,6 +89,10 @@ const _V1_1_COMMIT = 31123;
 
 const _VERSION = 'Version ';
 
-final _svnIdRegExp = new RegExp(
+final _trunkSvnIdRegExp = new RegExp(
     r'git-svn-id: https://dart.googlecode.com/svn/trunk@(\d+) '
+    '260f80e4-7a28-3924-810f-c04153c831b5');
+
+final _bleedingEdgeSvnIdRegExp = new RegExp(
+    r'git-svn-id: https://dart.googlecode.com/svn/branches/bleeding_edge@(\d+) '
     '260f80e4-7a28-3924-810f-c04153c831b5');
