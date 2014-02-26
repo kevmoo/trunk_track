@@ -22,7 +22,8 @@ void main() {
     }).then((commits) {
       var data = inspectCommits(commits);
 
-      var v1_2Items = data.where((cd) => cd.version > _V1_1);
+      var v1_2Items = data.where((cd) => cd.version > _V1_1)
+          .where((cd) => cd.version < _V1_2);
 
       return _getv1_2Data(gitDir, v1_2Items);
     }).then((Map<int, SvnCommitData> data) {
@@ -112,6 +113,8 @@ const _BLEEDING_EDGE_BRANCH = 'remotes/origin/master';
 const _TRUNK_BRARCH = 'remotes/trunk/master';
 
 final _V1_1 = new Version(1, 1, 0);
+
+final _V1_2 = new Version(1,  2,  0);
 
 final _fullBugUrlRegExp = new RegExp(
     r'BUGS?= ?(https?://)?(code.google.com/p/dart/issues/detail\?id=|dartbug.com/|www.dartbug.com/)(\d+)');
