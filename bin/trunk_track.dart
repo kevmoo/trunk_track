@@ -22,10 +22,10 @@ void main() {
     }).then((commits) {
       var data = inspectCommits(commits);
 
-      var v1_2Items = data.where((cd) => cd.version > _V1_1)
-          .where((cd) => cd.version < _V1_2);
+      var v1_2Items = data.where((cd) => cd.version > _V1_2)
+          .where((cd) => cd.version < _V1_3);
 
-      return _getv1_2Data(gitDir, v1_2Items);
+      return _getData(gitDir, v1_2Items);
     }).then((Map<int, SvnCommitData> data) {
 
       var allBugs = new Set<int>();
@@ -84,12 +84,12 @@ int _parseBugLine(String bugLine) {
   throw new UnsupportedError('Could not parse bug line:\t$bugLine');
 }
 
-Future<Map<int, SvnCommitData>> _getv1_2Data(GitDir gitDir, Iterable<TrunkCommitData> commitDataList) {
+Future<Map<int, SvnCommitData>> _getData(GitDir gitDir, Iterable<TrunkCommitData> commitDataList) {
   var sets = commitDataList.expand((TrunkCommitData cd) => cd.merges);
 
   var commits = MergeSet.getCommitIds(sets);
 
-  print('Total commits in v1.2: ${commits.length}');
+  print('Total commits: ${commits.length}');
 
   return _getBleedingEdgeCommitData(gitDir)
       .then((bleedingEdgeCommits) {
@@ -112,9 +112,9 @@ Future<Map<int, SvnCommitData>> _getBleedingEdgeCommitData(GitDir gitDir) =>
 const _BLEEDING_EDGE_BRANCH = 'remotes/origin/master';
 const _TRUNK_BRARCH = 'remotes/trunk/master';
 
-final _V1_1 = new Version(1, 1, 0);
-
 final _V1_2 = new Version(1,  2,  0);
+
+final _V1_3 = new Version(1, 3, 0);
 
 final _fullBugUrlRegExp = new RegExp(
     r'BUGS?= ?(https?://)?(code.google.com/p/dart/issues/detail\?id=|dartbug.com/|www.dartbug.com/)(\d+)');
